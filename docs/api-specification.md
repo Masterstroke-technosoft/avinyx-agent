@@ -21,7 +21,7 @@ All APIs adhere to RESTful conventions, prefixed with `/api/v1`.
 
 ## 4. Case Management (Ingestion & Workflow)
 *   `POST /api/v1/cases`
-    *   **Description**: Submit a new civic grievance (with text/media).
+    *   **Description**: Submit a new civic grievance. Accepts a `multipart/form-data` payload containing a `case_data` field (a stringified JSON object) and an optional `file` field for media.
 *   `GET /api/v1/cases`
     *   **Description**: List cases with filtering (by status, ward, citizen).
 *   `GET /api/v1/cases/{id}`
