@@ -97,11 +97,11 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                         parent_case.status = "in_progress"
                         
                     db.commit()
-                    
-                    # -- NEW: Send SMTP Notifications to Department Officials --
+                    # -- NEW: Send Notifications to Department Officials (Email/SMS) --
                     if assigned_department:
                         from app.models.users import User
                         from app.services.email import send_department_notification
+                        from app.services.sms import send_sms_notification
                         from app.models.cases import MediaAttachment
                         
                         # Check for attachment
@@ -111,19 +111,60 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                         # Find all officials in this department
                         officials = db.query(User).filter(User.department_name == assigned_department).all()
                         for official in officials:
-                            background_tasks.add_task(
-                                send_department_notification,
-                                official.email,
-                                str(parent_case.id),
-                                parent_case.title,
-                                master_severity,
-                                assigned_department,
-                                parent_case.ward,
-                                parent_case.latitude,
-                                parent_case.longitude,
-                                attachment_path,
-                                is_update
-                            )
+                            pref = official.notification_preference or "email"
+                            
+                            # Send Email
+                            if pref in ["email", "both"]:
+                                background_tasks.add_task(
+                                    send_department_notification,
+                                    official.email,
+                                    str(parent_case.id),
+                                    parent_case.title,
+                                    master_severity,
+                                    assigned_department,
+                                    parent_case.ward,
+                                    parent_case.latitude,
+                                    parent_case.longitude,
+                                    attachment_path,
+                                    is_update
+                                )
+                                
+                            # Send SMS
+                            if pref in ["sms", "both"] and official.phone_number:
+                                background_tasks.add_task(
+                                    send_sms_notification,
+                                    official.phone_number,
+                                    str(parent_case.id),
+                                    parent_case.title,
+                                    master_severity,
+                                    assigned_department,
+                                    is_update
+                                )
+                                
+                        # -- NEW: Notify the Citizen --
+                        citizen = db.query(User).filter(User.id == parent_case.citizen_id).first()
+                        if citizen:
+                            citizen_pref = parent_case.citizen_notification_preference or "email"
+                            
+                            from app.services.email import send_citizen_email_notification
+                            from app.services.sms import send_citizen_sms_notification
+                            
+                            if citizen_pref in ["email", "both"]:
+                                background_tasks.add_task(
+                                    send_citizen_email_notification,
+                                    citizen.email,
+                                    str(parent_case.id),
+                                    parent_case.title,
+                                    assigned_department
+                                )
+                            if citizen_pref in ["sms", "both"] and citizen.phone_number:
+                                background_tasks.add_task(
+                                    send_citizen_sms_notification,
+                                    citizen.phone_number,
+                                    str(parent_case.id),
+                                    parent_case.title,
+                                    assigned_department
+                                )
                     # -----------------------------------------------------------
 
                     from app.api.v1.websockets import manager

@@ -10,6 +10,7 @@ class Case(BaseModel):
     description = Column(String, nullable=False)
     status = Column(String, default="pending", nullable=False)
     priority = Column(Integer, default=0)
+    citizen_notification_preference = Column(String, default="email")
     
     # Geolocation
     latitude = Column(Float, nullable=True)

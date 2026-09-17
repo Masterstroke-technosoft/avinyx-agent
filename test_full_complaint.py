@@ -30,7 +30,10 @@ def full_test():
         "priority": 3
     }
     
-    data = {"case_data": json.dumps(case_data_dict)}
+    data = {
+        "case_data": json.dumps(case_data_dict),
+        "notify_me_via": "sms"
+    }
     
     with open("sinkhole.jpg", "rb") as f:
         files = {"file": ("sinkhole.jpg", f, "image/jpeg")}

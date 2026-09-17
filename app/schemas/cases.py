@@ -34,6 +34,7 @@ class CaseResponse(CaseBase):
     closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    citizen_notification_preference: Optional[str] = None
     attachments: List[MediaResponse] = []
 
     class Config:

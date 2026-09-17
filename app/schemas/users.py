@@ -5,6 +5,8 @@ from typing import Optional
 
 class UserBase(BaseModel):
     email: EmailStr
+    phone_number: Optional[str] = None
+    notification_preference: Optional[str] = "email"
 
 class UserCreate(UserBase):
     password: str

@@ -32,6 +32,7 @@ def haversine(lat1, lon1, lat2, lon2):
 @router.post("/", response_model=CaseResponse, name="File a Complaint")
 def create_case(
     case_data: str = Form(..., description="JSON string containing CaseCreate data"), 
+    notify_me_via: str = Form("email", description="Notification preference: 'email', 'sms', or 'both'"),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
@@ -51,7 +52,8 @@ def create_case(
         latitude=case_in.latitude,
         longitude=case_in.longitude,
         ward=case_in.ward,
-        priority=case_in.priority
+        priority=case_in.priority,
+        citizen_notification_preference=notify_me_via
     )
     
     # Phase 5: Geo-Spatial Deduplication

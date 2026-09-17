@@ -9,6 +9,8 @@ class User(BaseModel):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     department_name = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)
+    notification_preference = Column(String, default="email")
 
     roles = relationship("Role", secondary="user_roles", back_populates="users")
 

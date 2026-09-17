@@ -74,3 +74,45 @@ def send_department_notification(to_email: str, case_id: str, case_title: str, p
             server.quit()
         except:
             pass
+
+def send_citizen_email_notification(to_email: str, case_id: str, case_title: str, department: str):
+    """
+    Sends an SMTP email notification to the citizen updating them on their case.
+    """
+    if not settings.SMTP_SERVER or not settings.SENDER_EMAIL or not settings.SENDER_PASSWORD:
+        logger.warning(f"SMTP not configured. Skipping citizen email to {to_email}")
+        return
+
+    subject = f"✅ Update: Your Complaint '{case_title}' is being handled"
+    body = f"""
+    <html>
+        <body>
+            <h2>Update on your Civic Complaint</h2>
+            <p><strong>Case ID:</strong> {case_id}</p>
+            <p><strong>Title:</strong> {case_title}</p>
+            <p>Good news! Your complaint has been successfully analyzed by our AI and assigned to the <strong>{department}</strong> department.</p>
+            <p>They have been notified and will take action shortly.</p>
+            <p>Thank you for keeping our city safe!</p>
+        </body>
+    </html>
+    """
+
+    msg = MIMEMultipart()
+    msg['From'] = settings.SENDER_EMAIL
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'html'))
+
+    try:
+        server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT)
+        server.starttls()
+        server.login(settings.SENDER_EMAIL, settings.SENDER_PASSWORD)
+        server.send_message(msg)
+        logger.info(f"Citizen notification email sent to {to_email}")
+    except Exception as e:
+        logger.error(f"Failed to send citizen email to {to_email}: {e}")
+    finally:
+        try:
+            server.quit()
+        except:
+            pass
