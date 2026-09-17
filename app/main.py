@@ -21,6 +21,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+import threading
+from app.workers.text_agent import start_worker as start_text_agent
+from app.workers.critical_agent import start_worker as start_critical_agent
+from app.workers.geo_agent import start_worker as start_geo_agent
+from app.workers.vision_agent import start_worker as start_vision_agent
+
+@app.on_event("startup")
+def startup_event():
+    print("🚀 Starting AI Agent Workers in the background...")
+    
+    agents = [
+        ("Text Agent", start_text_agent),
+        ("Critical Agent", start_critical_agent),
+        ("Geo Agent", start_geo_agent),
+        ("Vision Agent", start_vision_agent)
+    ]
+    
+    for name, agent_func in agents:
+        thread = threading.Thread(target=agent_func, daemon=True, name=name)
+        thread.start()
+        print(f"✅ {name} thread started.")
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Civic System API"}

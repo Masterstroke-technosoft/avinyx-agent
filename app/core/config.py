@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # SMTP Notifications
+    SMTP_SERVER: str | None = None
+    SMTP_PORT: int = 587
+    SENDER_EMAIL: str | None = None
+    SENDER_PASSWORD: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

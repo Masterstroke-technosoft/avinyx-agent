@@ -95,6 +95,27 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                         
                     db.commit()
                     
+                    # -- NEW: Send SMTP Notifications to Department Officials --
+                    if assigned_department:
+                        from app.models.users import User
+                        from app.services.email import send_department_notification
+                        
+                        # Find all officials in this department
+                        officials = db.query(User).filter(User.department_name == assigned_department).all()
+                        for official in officials:
+                            background_tasks.add_task(
+                                send_department_notification,
+                                official.email,
+                                str(parent_case.id),
+                                parent_case.title,
+                                master_severity,
+                                assigned_department,
+                                parent_case.ward,
+                                parent_case.latitude,
+                                parent_case.longitude
+                            )
+                    # -----------------------------------------------------------
+
                     from app.api.v1.websockets import manager
                     msg = {
                         "case_id": str(parent_case.id), 
