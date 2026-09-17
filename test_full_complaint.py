@@ -1,7 +1,7 @@
 import httpx
 import json
 import time
-
+import random
 BASE_URL = "http://127.0.0.1:8000/api/v1"
 
 def full_test():
@@ -14,28 +14,30 @@ def full_test():
     token = res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
-    # 2. Submit Text Complaint
-    print("\n1. Citizen submitting complaint about a massive sinkhole...")
-    case_data = {
-        "title": "Massive Sinkhole",
-        "description": "The road completely collapsed on 5th Avenue. It's a huge sinkhole!",
-        "latitude": 40.75,
-        "longitude": -73.98,
-        "ward": "Midtown",
-        "priority": 3 # Citizen thinks it's priority 3
-    }
-    res = httpx.post(f"{BASE_URL}/cases/", json=case_data, headers=headers)
-    case_id = res.json()["id"]
-    print(f"Ticket created! Case ID: {case_id}")
+    # 2. Submit Case with Media Attached
+    print("\n1. Citizen submitting complaint about a massive sinkhole with a photo attached...")
     
-    # 3. Upload Photo Proof
-    print("\n2. Citizen uploading photo evidence of the sinkhole...")
+    # Create a dummy image file
     with open("sinkhole.jpg", "wb") as f:
         f.write(b"dummy image of a sinkhole")
+        
+    case_data_dict = {
+        "title": f"Massive Sinkhole {random.randint(1000, 9999)}",
+        "description": "The road completely collapsed on 5th Avenue. It's a huge sinkhole!",
+        "latitude": 40.75 + random.uniform(-0.1, 0.1),
+        "longitude": -73.98 + random.uniform(-0.1, 0.1),
+        "ward": "Midtown",
+        "priority": 3
+    }
+    
+    data = {"case_data": json.dumps(case_data_dict)}
+    
     with open("sinkhole.jpg", "rb") as f:
         files = {"file": ("sinkhole.jpg", f, "image/jpeg")}
-        httpx.post(f"{BASE_URL}/cases/{case_id}/media", files=files, headers=headers)
-    print("Photo uploaded successfully!")
+        res = httpx.post(f"{BASE_URL}/cases/", data=data, files=files, headers=headers)
+        
+    case_id = res.json()["id"]
+    print(f"Ticket created and photo uploaded! Case ID: {case_id}")
     
     import os
     os.remove("sinkhole.jpg")

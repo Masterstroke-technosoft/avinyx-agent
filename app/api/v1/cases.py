@@ -1,7 +1,9 @@
 import os
 import shutil
 import math
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from typing import Optional
+import json
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 from typing import List
@@ -28,8 +30,20 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 @router.post("/", response_model=CaseResponse, name="File a Complaint")
-def create_case(case_in: CaseCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Create a new civic complaint ticket."""
+def create_case(
+    case_data: str = Form(..., description="JSON string containing CaseCreate data"), 
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new civic complaint ticket with optional photo/video evidence in one step."""
+    
+    try:
+        parsed_data = json.loads(case_data)
+        case_in = CaseCreate(**parsed_data)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON data in case_data: {e}")
+        
     new_case = Case(
         citizen_id=current_user.id,
         title=case_in.title,
@@ -99,6 +113,41 @@ def create_case(case_in: CaseCreate, db: Session = Depends(get_db), current_user
         "payload": geo_payload
     }
     publish_task("geo_queue", geo_queue_payload)
+    
+    # NEW: Handle File Upload & Vision Agent
+    if file:
+        if file.content_type not in ["image/jpeg", "image/png", "video/mp4"]:
+            raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and MP4 allowed.")
+            
+        file_location = f"{UPLOAD_DIR}/{new_case.id}_{file.filename}"
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+            
+        attachment = MediaAttachment(
+            case_id=new_case.id,
+            file_url=file_location,
+            media_type="image" if "image" in file.content_type else "video",
+            stage="before"
+        )
+        db.add(attachment)
+        
+        vision_payload = {"file_url": file_location, "media_type": attachment.media_type}
+        vision_task = AgentTask(
+            case_id=new_case.id,
+            agent_type="vision",
+            status="pending",
+            payload=vision_payload
+        )
+        db.add(vision_task)
+        db.commit()
+        
+        vision_queue_payload = {
+            "task_id": str(vision_task.id),
+            "case_id": str(new_case.id),
+            "agent_type": "vision",
+            "payload": vision_payload
+        }
+        publish_task("vision_queue", vision_queue_payload)
     
     return new_case
 
@@ -180,65 +229,3 @@ def get_case_analysis(case_id: UUID, db: Session = Depends(get_db), current_user
         })
         
     return analysis_report
-
-@router.post("/{case_id}/media", response_model=MediaResponse)
-def upload_media_proof(
-    case_id: UUID, 
-    file: UploadFile = File(...), 
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
-):
-    """Upload photo/video as strict evidence for a case."""
-    case = db.query(Case).filter(Case.id == case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-        
-    if case.citizen_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You do not own this case")
-        
-    # Restrict file types
-    if file.content_type not in ["image/jpeg", "image/png", "video/mp4"]:
-        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and MP4 allowed.")
-        
-    # Save file locally (In a real production app, this uploads to S3)
-    file_location = f"{UPLOAD_DIR}/{case_id}_{file.filename}"
-    with open(file_location, "wb+") as file_object:
-        shutil.copyfileobj(file.file, file_object)
-        
-    # Create attachment record
-    attachment = MediaAttachment(
-        case_id=case.id,
-        file_url=file_location,
-        media_type="image" if "image" in file.content_type else "video",
-        stage="before" # Explicitly tag as 'before' (proof of damage)
-    )
-    db.add(attachment)
-    
-    # ORCHESTRATOR TRIGGER: Automatically spawn a task for the Vision Agent
-    from app.models.agents import AgentTask
-    from app.core.queue import publish_task
-    
-    payload_data = {"file_url": file_location, "media_type": attachment.media_type}
-    
-    vision_task = AgentTask(
-        case_id=case.id,
-        agent_type="vision",
-        status="pending",
-        payload=payload_data
-    )
-    db.add(vision_task)
-    
-    db.commit()
-    db.refresh(attachment)
-    db.refresh(vision_task)
-    
-    # Push to RabbitMQ for enterprise queue processing
-    queue_payload = {
-        "task_id": str(vision_task.id),
-        "case_id": str(case.id),
-        "agent_type": "vision",
-        "payload": payload_data
-    }
-    publish_task("vision_queue", queue_payload)
-    
-    return attachment

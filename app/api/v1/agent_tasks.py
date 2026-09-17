@@ -83,6 +83,9 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                 
                 parent_case = db.query(Case).filter(Case.id == task.case_id).first()
                 if parent_case:
+                    # Check if this is a follow-up (media added later)
+                    is_update = True if parent_case.assigned_department else False
+                    
                     parent_case.ai_severity = master_severity
                     parent_case.ai_intent = final_intent
                     parent_case.assigned_department = assigned_department
@@ -99,6 +102,11 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                     if assigned_department:
                         from app.models.users import User
                         from app.services.email import send_department_notification
+                        from app.models.cases import MediaAttachment
+                        
+                        # Check for attachment
+                        attachment = db.query(MediaAttachment).filter(MediaAttachment.case_id == parent_case.id).first()
+                        attachment_path = attachment.file_url if attachment else None
                         
                         # Find all officials in this department
                         officials = db.query(User).filter(User.department_name == assigned_department).all()
@@ -112,7 +120,9 @@ def submit_agent_result(task_id: UUID, result_in: AgentTaskResult, background_ta
                                 assigned_department,
                                 parent_case.ward,
                                 parent_case.latitude,
-                                parent_case.longitude
+                                parent_case.longitude,
+                                attachment_path,
+                                is_update
                             )
                     # -----------------------------------------------------------
 

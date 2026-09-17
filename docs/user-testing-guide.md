@@ -43,24 +43,27 @@ SENDER_PASSWORD="your_app_password"
 
 ### 3. Submit a Case (Grievance)
 *   **Endpoint:** `POST /api/v1/cases/` (Ensure you are authorized with the citizen's token)
-*   **Payload:**
-    ```json
-    {
-      "title": "Massive pothole causing accidents",
-      "description": "There is a 3-foot wide pothole right in the middle of the intersection.",
-      "latitude": 40.7128,
-      "longitude": -74.0060,
-      "ward": "Ward 5"
-    }
-    ```
+*   **Payload (multipart/form-data):**
+    *   `case_data`: (Paste the following JSON string)
+        ```json
+        {
+          "title": "Massive pothole causing accidents",
+          "description": "There is a 3-foot wide pothole right in the middle of the intersection.",
+          "latitude": 40.7128,
+          "longitude": -74.0060,
+          "ward": "Ward 5"
+        }
+        ```
+    *   `file`: (Optional - Select an image/video file to upload)
 *   **Expected:** Returns `200 OK` with the created case. **Note the `id` of this case** for the next steps. The status should initially be `pending`.
 
 ### 4. Verify AI Agent Processing
-*   *Background Process:* The moment the case is submitted, the system's background AI agents (Text Agent, Criticality Agent) are triggered.
+*   *Background Process:* The moment the case is submitted, the system's background AI agents (Text, Vision, and Geo Agents) are triggered simultaneously.
 *   **Endpoint:** `GET /api/v1/cases/{case_id}` (Using the ID from Step 3)
 *   **Expected:** Wait 5-10 seconds and fetch the case again. You should observe that:
-    1.  The `priority` score has been automatically calculated (e.g., > 70 due to "accidents" keyword).
+    1.  The `priority` score has been automatically calculated combining text and visual evidence.
     2.  The case has been routed to a specific department (e.g., "Roads").
+    3.  An email with the attached photo/video was dispatched to the department officials.
 
 ---
 

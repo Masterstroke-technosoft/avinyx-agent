@@ -1,19 +1,21 @@
 import httpx
 import time
 import random
+import json
 
 BASE_URL = "http://127.0.0.1:8000/api/v1"
 
 def create_case(client, token, title, description):
     headers = {"Authorization": f"Bearer {token}"}
-    case_data = {
+    case_data_dict = {
         "title": f"{title} - {random.randint(1000, 9999)}",
         "description": description,
         "latitude": 40.7128 + random.uniform(-0.1, 0.1),
         "longitude": -74.0060 + random.uniform(-0.1, 0.1),
         "ward": f"Ward {random.randint(1, 10)}"
     }
-    response = client.post(f"{BASE_URL}/cases/", json=case_data, headers=headers)
+    data = {"case_data": json.dumps(case_data_dict)}
+    response = client.post(f"{BASE_URL}/cases/", data=data, headers=headers)
     return response.json()
 
 def run_test():
