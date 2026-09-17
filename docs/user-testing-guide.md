@@ -10,6 +10,15 @@ By following these user journeys, you can simulate real-world usage and verify t
 Ensure the backend is running locally (`uvicorn app.main:app --reload`) and that you have seeded the database (run `seed_roles.py`, `setup_admin.py`, and `create_departments.py`). 
 All testing can be done via the interactive API docs at `http://127.0.0.1:8000/docs` or via tools like Postman / cURL.
 
+**To Test Email Notifications:** 
+You must configure your `.env` file with real SMTP credentials (e.g., Gmail App Password) for the background agents to send dispatch emails successfully.
+```env
+SMTP_SERVER="smtp.gmail.com"
+SMTP_PORT=587
+SENDER_EMAIL="your_real_email@gmail.com"
+SENDER_PASSWORD="your_app_password"
+```
+
 ---
 
 ## Journey 1: The Citizen (Submitting a Grievance)
@@ -94,6 +103,19 @@ All testing can be done via the interactive API docs at `http://127.0.0.1:8000/d
 *   **Endpoint:** `GET /api/v1/cases/`
 *   **Expected:** The admin sees **all** cases across **all** departments.
 
-### 3. Verify Audit Logs & Blockchain Ledgers
+### 3. Add a New Department Worker
+The system uses dynamic email routing. To add a new official so they receive dispatch emails, the Admin simply creates them via the API:
+*   **Endpoint:** `POST /api/v1/admin/users`
+*   **Payload:**
+    ```json
+    {
+      "email": "new.worker@city.com",
+      "password": "securepassword123",
+      "department_name": "Sanitation"
+    }
+    ```
+*   **Expected:** Returns `200 OK`. The next time a case is routed to "Sanitation", this new user will automatically receive an email notification.
+
+### 4. Verify Audit Logs & Blockchain Ledgers
 *(If implemented as endpoints or accessible via DB)*
 *   **Verification:** Ensure that the actions taken by the citizen (creating the case) and the official (changing status) were correctly recorded in the `audit_logs` and `blockchain_ledgers` tables in the database.
