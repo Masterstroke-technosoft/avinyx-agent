@@ -32,7 +32,7 @@ def haversine(lat1, lon1, lat2, lon2):
 @router.post("/", response_model=CaseResponse, name="File a Complaint")
 def create_case(
     case_data: str = Form(..., description="JSON string containing CaseCreate data"), 
-    notify_me_via: str = Form("email", description="Notification preference: 'email', 'sms', or 'both'"),
+    notify_me_via: str = Form("none", description="Notification preference: 'email', 'sms', 'both', or 'none'"),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
@@ -70,6 +70,22 @@ def create_case(
     db.add(new_case)
     db.commit()
     db.refresh(new_case)
+    
+    # Save the in-app/dashboard notification unconditionally
+    from app.models.notifications import Notification
+    sys_notification = Notification(
+        user_id=current_user.id,
+        message=f"Case filed successfully: {new_case.title}"
+    )
+    db.add(sys_notification)
+    db.commit()
+
+    # The external email/sms logic would be checked here based on notify_me_via
+    if notify_me_via in ["email", "both"]:
+        pass # trigger email task
+    if notify_me_via in ["sms", "both"]:
+        pass # trigger sms task
+    # if 'none', it simply skips these blocks.
     
     if is_duplicate:
         return new_case
